@@ -324,6 +324,7 @@ program main
     ! 2,3: CO ads & dis;   4,5: O2 ads & dis;   6,7,8: CO,O2,O diff;   9: OCOO diff
     ! 10: CO*+O2*--OCOO*;   11: OCOO*--CO2+O*;   12: CO*+O*--CO2;   13: O*+O*--O2*
     integer(kind=4), parameter :: n_singleP = 6 ! number of single-site-process
+    integer(kind=8), parameter :: record_int = 10000  ! interval of record 'ijk_rec.dat'
     integer, DIMENSION(n_singleP) :: singleP = (/2, 3, 4, 5, 11, 12/) ! # of single-site-process
     integer, DIMENSION(n_singleP) :: kArr
 
@@ -486,8 +487,10 @@ program main
 
         n_step_tot = n_step_tot + 1
 
-        if(kpick.eq.10) write(13, *) Ea_r(2, j_cn, ipick), effcn(ipick), effcn(jpick), &
-        gcn(ipick), gcn(jpick), n_step_tot
+        if(kpick.eq.10) then
+            write(13, "(2f15.6, 2I5, 2f11.4, 4x, I0)") &
+            Ea_r(1, j_cn, ipick), Ea_r(2, j_cn, ipick), effcn(ipick), effcn(jpick), gcn(ipick), gcn(jpick), n_step_tot
+        end if
 
         SELECT CASE(kpick)
             CASE(2) ! CO adsorption
@@ -569,7 +572,9 @@ program main
                 n_step_each(13) = n_step_each(13) + 1
         END SELECT
             
-        if(mod(n_step_tot, 10000).eq.0) write(14, *) ctime, n_step_tot, n_step_each
+        if(mod(n_step_tot, record_int).eq.0) then
+            write(14, "(es22.12, 14I12)") ctime, n_step_tot, n_step_each
+        end if
 
         ! initial and cal new relative r
         ! update rsite, revent, and rneis of all atoms in nnnsite of ipick
@@ -691,7 +696,7 @@ program main
     end do
     
     ! record 14
-    write(14, *) ctime, n_step_tot, n_step_each
+    write(14, "(es22.12, 14I12)") ctime, n_step_tot, n_step_each
 
     close(10)
     close(11)
@@ -751,18 +756,17 @@ subroutine rijk(r_site, ipick, kpick, j_cn, Ea_r)
     pCO = ppCO * p_tot
     pO2 = ppO2 * p_tot
 
-    if(kpick.ne.2 .and. kpick.ne.3 .and. kpick.ne.4 .and. kpick.ne.5 .and. kpick.ne.11 .and. kpick.ne.12) then
+    ni_ads = cov_type(ipick)
+    gcn_ipick = gcn(ipick)
+    if(j_cn .ne. 0) then
         jpick = nnsite(j_cn, ipick)
-        ni_ads = cov_type(ipick)
         nj_ads = cov_type(jpick)
-        gcn_ipick = gcn(ipick)
         gcn_jpick = gcn(jpick)
     end if
     
     SELECT CASE (kpick)
         CASE(2) ! CO adsorption
-            if(cov_type(ipick).eq.0) then
-                gcn_ipick = gcn(ipick)
+            if(ni_ads.eq.0) then
                 s0CO = s0_CO_facet
                 if(gcn_ipick.ge.0 .and. gcn_ipick.lt.5.33) s0CO = s0_CO_edge
                 if(effcn(ipick).ge.10) s0CO = 0.0
@@ -770,8 +774,7 @@ subroutine rijk(r_site, ipick, kpick, j_cn, Ea_r)
             end if
     
         CASE(3) ! CO desorption
-            if(cov_type(ipick).eq.1) then
-                gcn_ipick = gcn(ipick)
+            if(ni_ads.eq.1) then
                 s0CO = s0_CO_facet        
                 ! CO ads
                 if(gcn_ipick.ge.0 .and. gcn_ipick.lt.5.33) s0CO = s0_CO_edge
@@ -787,8 +790,7 @@ subroutine rijk(r_site, ipick, kpick, j_cn, Ea_r)
             end if
             
         CASE(4) ! O2 adsorption
-            if (cov_type(ipick).eq.0) then
-                gcn_ipick = gcn(ipick)
+            if (ni_ads.eq.0) then
                 s0O2 = s0_O2_facet
                 if(gcn_ipick.ge.0 .and. gcn_ipick.lt.5.33) s0O2 = s0_O2_edge
                 if(effcn(ipick).ge.10) s0O2 = 0.0
@@ -796,9 +798,8 @@ subroutine rijk(r_site, ipick, kpick, j_cn, Ea_r)
             end if
 
         CASE(5) ! O2 desorption
-            if(cov_type(ipick).eq.2) then
+            if(ni_ads.eq.2) then
                 ! O2 ads
-                gcn_ipick = gcn(ipick)
                 s0O2 = s0_O2_facet
                 if(gcn_ipick.ge.0 .and. gcn_ipick.lt.5.33) s0O2 = s0_O2_edge
                 if(effcn(ipick).ge.10) s0O2 = 0.0
@@ -878,18 +879,19 @@ subroutine rijk(r_site, ipick, kpick, j_cn, Ea_r)
                 Ea2 = BEP2_a*(Eads_i + Eads_j) + BEP2_b
                 if(Ea .le. 0) Ea = 0.0
                 if(Ea2 .le. 0) Ea2 = 0.0
+                Ea_r(1, j_cn, ipick) = Ea
+                Ea_r(2, j_cn, ipick) = Ea2
                 Ea = Ea + Ea2
-                Ea_r(2, j_cn, ipick) = Ea
                 r_site = (kb*Temp/h)*exp(-Ea/(kb*Temp))
             end if
         
         CASE(11) ! OCOO - CO2 + O reaction
-            if(cov_type(ipick) .eq. 4) then 
+            if(ni_ads .eq. 4) then 
                 r_site = 0
             end if
             
         CASE(12) ! CO + O - CO2 reaction
-            if(cov_type(ipick) .eq. 3) then
+            if(ni_ads .eq. 3) then
                 Ea = Ea3
                 r_site = (kb*Temp/h)*exp(-Ea/(kb*Temp))
             end if
