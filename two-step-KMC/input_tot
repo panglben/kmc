@@ -1,0 +1,20 @@
+0              ! 0: start this_one, 1: start last_one ； natoms
+100000         ! steps of atomjumping ; time of system change(second)
+60 60 60       ! dx, dy, dz (boxsizex, boxsizey, boxsizez)
+1.0     0.9                             ! sticking coefficient of CO(core&edge ; facet) : (eV)
+1.0     0.1                             ! sticking coefficient of O2(core&edge ; facet) : (eV)
+0.6    0.6   0.6                      ! diffusion barrier of CO*, O2*, O* : (eV)
+0.1453  -1.3926             ! coeffient a,b for CO in Eads = a*gcn + b
+0.1600  -0.9400             ! coeffient a,b for O2
+0.0000  -0.0300             ! coeffient a,b for O
+-0.470  -0.2600             ! BEP coeffient for CO* + O2* -- OCOO*
+-0.670  -0.4500             ! BEP coeffient for OCOO* -- CO2 + O*
+0.1000                      ! Ea for CO + O* -- CO2
+
+Pt
+3.924              ! lattice constant        
+400     1000000                          ! T ; P	: (K, Pa)
+0.2      0.8                              ! ppCO ; ppO2
+-0.0707 -0.032 -0.179     ! Interaction between CO-CO; O2-O2; O-O
+-0.01   -0.08  -0.25      ! Interaction between CO-O2; CO-O; O2-O
+
