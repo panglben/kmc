@@ -33,9 +33,9 @@ module outer_data
             read(1, *) Eads_CO_a, Eads_CO_b ! Eads = a*gcn + b
             read(1, *) Eads_O2_a, Eads_O2_b
             read(1, *) Eads_O_a, Eads_O_b
-            read(1, *) BEP1_a, BEP1_b
-            read(1, *) BEP2_a, BEP2_b
-            read(1, *) Ea3
+            read(1, *) BEP1_a, BEP1_b ! BEP coeffient for CO* + O2* -- OCOO*
+            read(1, *) BEP2_a, BEP2_b ! BEP coeffient for OCOO* -- CO2 + O*
+            read(1, *) Ea3 ! Ea for CO + O* -- CO2
 
             read(1, *) elem
             read(1, *) latt_para
@@ -58,7 +58,7 @@ module struct_data
     integer(kind=2), private :: nlx, nly, nlz
     real(kind=4), protected :: clx, cly, clz
     real(kind=4), protected :: bx, by, bz
-    real(kind=4), protected :: xxx(100000), yyy(100000), zzz(100000)  ! coordinate of the bulk
+    real(kind=4), protected :: xxx(100000), yyy(100000), zzz(100000)  ! coordinate of the grid
     
     integer(kind=4), protected :: natoms ! number of atoms in NPs
     real(kind=4), protected :: x(100000), y(100000), z(100000)  ! coordinate of the NP
@@ -66,7 +66,7 @@ module struct_data
     real(kind=8), protected :: gcn(100000)
     integer(kind=4), protected :: cn(100000), cn_2(100000), effcn(100000)
     integer(kind=4), protected :: nnsite(12, 100000), nnnsite(54, 100000)
-    integer(kind=4), public :: cov_type(100000) ! 0-none; 1-CO; 2-O2; 3-O; 4-OCOO_CO; -4-OCOO_OO; 5-outer grid
+    integer(kind=4), public :: cov_type(100000) ! 0-none; 1-CO; 2-O2; 3-O; 4-OCOO_CO; -4-OCOO_OO; 5-bulk
     integer(kind=4), public :: site_type(100000) ! 1-np; 2-surface site; 3-outer grid
     integer(kind=4), public :: co_ads_site(100000) ! record the # the coads site
     
@@ -416,6 +416,7 @@ program main
     do i = 1, nbulk
         if(site_type(i).lt.3) write(10, *) elem, xxx(i), yyy(i), zzz(i), cov_type(i)
     end do
+    write(14, "(es22.12, 14I12)") ctime, n_step_tot, n_step_each
 
     ! KCM cycle
     do while (n_step_tot .le. nLoop)
@@ -424,13 +425,13 @@ program main
         if(n_step_tot.gt.0 .and. mod(n_step_tot, 20000000).eq.0) then
             nf_1 = nf_1 + 1
             write(char_seq,'(i2.2)') nf_1
-            write(filename1, *) 'atom_str_',trim(char_seq),'.xyz'  ! real atoms coordination
+            !write(filename1, *) 'atom_str_',trim(char_seq),'.xyz'  ! real atoms coordination
             write(filename2, *) 'ijk_rec_',trim(char_seq),'.dat'   ! ctime, ipick, jpick, kick of every step
             !write(filename3, *) 'Ea_atom_',trim(char_seq),'.dat'   ! energy barrier of atom jumping, cn, n_tot_step
             write(filename4, *) 'Ea_COO_',trim(char_seq),'.dat'    ! energy barrier of CO oxdaition, cn, n_tot_step
             write(filename5, *) 'step_rec_',trim(char_seq),'.dat'  ! steps of every event
 
-            open(10, file=filename1, status='new', action='write')
+            !open(10, file=filename1, status='new', action='write')
             open(11, file=filename2, status='new', action='write')
             !open(12, file=filename3, status='new', action='write')
             open(13, file=filename4, status='new', action='write')
@@ -543,7 +544,7 @@ program main
                 co_ads_site(ipick) = 0
                 co_ads_site(jpick) = 0
                 n_step_each(11) = n_step_each(11) + 1
-                n_step_tot = n_step_tot + 1
+                ! n_step_tot = n_step_tot + 1
                 write(11, *) ctime, n_step_tot, kpick, kpick+1
 
             CASE(11) ! OCOO--CO2 + O2
@@ -740,8 +741,7 @@ subroutine rijk(r_site, ipick, kpick, j_cn, Ea_r)
     real(kind=8), parameter :: Na = 6.0221409D23
     real(kind=8), parameter :: Asite = (10D-10)**2
     real(kind=8), parameter :: p0 = 100000  ! p0 = 100kPa
-    ! real(kind=4),parameter::EdiffCO = 0.68
-    ! real(kind=4),parameter::EdiffO = 0.58
+    
     real(kind=8) :: s0CO, s0O2, s0O, mCO, mO, Sco_0, So2_0
     real(kind=8) :: Eads_i, Eads_j, dE, Ea, Ea2
     real(kind=8) :: dS_CO, dS_O2, r_K_eq
@@ -814,7 +814,7 @@ subroutine rijk(r_site, ipick, kpick, j_cn, Ea_r)
             end if
             
         CASE(6) ! CO diffusion
-            if(ni_ads.eq.1 .and. nj_ads.eq.0 .and. effcn(jpick).ge.10) then
+            if(ni_ads.eq.1 .and. nj_ads.eq.0 .and. effcn(jpick).lt.10) then
                 Eads_i = 0.0
                 call Eads_site(Eads_i, ipick, 1)
                 cov_type(ipick) = 0
